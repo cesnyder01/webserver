@@ -1,3 +1,7 @@
+// Cora Snyder
+// Network Systems & Design - Programming Assignment
+// March 23 2026
+
 import java.net.*; 
 import java.io.*; 
 import java.io.BufferedReader; 
@@ -15,7 +19,7 @@ public class MyWebServer {
     public static void main(String[] args) {
 
         try {
-            boolean alive = true;
+            boolean alive = true; 
 
             // setting date format
             SimpleDateFormat HTTPDateFormat = new SimpleDateFormat("EEE MMM d hh:mm:ss zzz yyyy");
@@ -28,154 +32,168 @@ public class MyWebServer {
             ServerSocket servs = new ServerSocket(port);
             System.out.println("Server started, listening on port " + args[0]);
 
-             while(alive){
-            // accepting connection
-            Socket sock = servs.accept();
-            System.out.println("Socket accepted");
+            while(alive){ // outer loop for servs lifetime
 
-            boolean done = false;
+                // accepting connection
+                Socket sock = servs.accept();
+                System.out.println("Socket accepted");
 
-            // reading input
-            BufferedReader inFromClient = new BufferedReader(new InputStreamReader(sock.getInputStream()));
+                boolean done = false;
 
-            // creating output stream
-                    DataOutputStream outToClient =  new DataOutputStream(sock.getOutputStream());
+                // creating input stream
+                BufferedReader inFromClient = new BufferedReader(new InputStreamReader(sock.getInputStream()));
+
+                // creating output stream
+                DataOutputStream outToClient =  new DataOutputStream(sock.getOutputStream());
             
-            //System.out.println("Message: " + str);
+                while (!done) { // inner loop for sock lifetime
 
-            while (!done) {
-                System.out.println("About to read next request...");
+                    // begin reading input
+                    String str = inFromClient.readLine();
 
-                String str = inFromClient.readLine();
-
-                if(str == null){
-                    done = true;
-                    System.out.println("caught done on string = null clause");
-                }
-
-                // separating the request line, request headers, and message body
-                else if (str != null) {
-
-                    // setting status
-                    String status = "200 OK";
-
-                    String[] components = str.split(" ");
-                    String method = components[0];
-                    String uri = components[1];
-                    String path = inputPath + uri;
-                    String httpversion = components[2];
-
-
-                    // checking if method is GET or HEAD 
-                    if (!method.equals("GET") && !method.equals("HEAD")) {
-                        status = "501 Not Implemented";
+                    if(str == null){
+                        done = true; // end connection when request is null
                     }
 
-                    System.out.println("Method: " + method);
-                    System.out.println("URI: " + uri);
-                    System.out.println("HTTP Version: " + httpversion);
+                    // continuing when the request is not null
+                    else if (str != null) {
+
+                        // setting status
+                        String status = "200 OK";
+                        String body = "";
+
+                        String[] components = str.split(" ");
+                        String method = components[0];
+                        String uri = components[1];
+                        String path = inputPath + uri;
+                        String httpversion = components[2];
 
 
-                    // reading in headers
-                    String headerline;
-                    Map<String, String> headers = new HashMap<>();
-
-                    while ((headerline = inFromClient.readLine()) != null && !headerline.isEmpty()) {
-                        String[] headercontent = headerline.split(": ", 2);
-                        if (headercontent.length == 2) {
-                            headers.put(headercontent[0], headercontent[1]);
-                        }
-                    }
-
-                    if (headers.containsKey("Connection") && (headers.get("Connection").equals("close"))) {
-                        done = true;
-                    }
-
-                    /*if(headers.containsValue("If-Modified-Since")){ 
-                        try{ 
-                            LocalDate modified = LocalDate.parse(headers.get("If-Modified-Since"), HTTPDateFormat); } 
-                        catch (DateTimeParseException e){ 
-                            status = "400 bad request"; } 
-                            }*/ 
-                           
-
-                    
-
-                    File f = new File(path);
-
-                   // System.out.println("path is " + path);
-
-                    String conLength = "0";
-                    String lastMod = "";
-                    String fullPath = path;
-
-                    // checking if file exists
-                    if (!f.exists()) {
-                        status = "404 Not Found";
-                    } else {
-
-                        if (f.isDirectory() || uri.equals("/")) {
-                            fullPath = path + "index.html";
-                            f = new File(fullPath);
+                        // checking if method is GET or HEAD 
+                        if (!method.equals("GET") && !method.equals("HEAD")) {
+                            status = "501 Not Implemented";
+                            body = "Error 501: " + method + " Method Not Implemented";
                         }
 
-                        // setting content length and last modified date
-                        conLength = String.valueOf(f.length());
-                        lastMod = HTTPDateFormat.format(
-                                new java.util.Date(f.lastModified()));
-                    }
+                        // reading in headers
+                        String headerline;
+                        Map<String, String> headers = new HashMap<>();
 
-                    // setting date
-                    String date = HTTPDateFormat.format(new java.util.Date());
+                        while ((headerline = inFromClient.readLine()) != null && !headerline.isEmpty()) {
+                            String[] headercontent = headerline.split(": ", 2);
+                            if (headercontent.length == 2) {
+                                headers.put(headercontent[0], headercontent[1]);
+                            }
+                        }
 
+                        // checking if client has requested to close the connection
+                        if (headers.containsKey("Connection") && (headers.get("Connection").equals("close"))) {
+                            done = true;
+                        }
 
-                    // writing response string
-                    String response = "";
-                    response = httpversion + " " + status + "\r\n"
-                            + "Date: " + date + "\r\n"
-                            + "Server: CSserver\r\n"
-                            + "Last-Modified: " + lastMod + "\r\n"
-                            + "Content-Length: " + conLength + "\r\n";
+                        // beginning to create response
+                        File f = new File(path);
 
-                    if(done){
-                        response = response + "Connection: close\r\n\r\n";
-                    }
-                    else{
-                       response = response + "Connection: keep-alive\r\n\r\n";
-                    }
+                        String conLength = "0";
+                        String lastMod = "";
+                        String fullPath = path;
 
-                    System.out.println(response);
+                        // checking if file exists
+                        if (!f.exists()) {
+                            status = "404 Not Found";
+                            body = "Error 404: File Not Found";
+                        } else {
 
-                    outToClient.writeBytes(response);
-
-                    if (method.equals("GET")) {
-
-                        try (FileInputStream readableFile = new FileInputStream(fullPath)) {
-                            int more;
-                            while ((more = readableFile.read()) != -1) {
-                                outToClient.write(more);
+                            if (f.isDirectory() || uri.equals("/")) {
+                                fullPath = path + "index.html";
+                                f = new File(fullPath);
                             }
 
-                        } catch (IOException e) {
-                            System.out.println("Error handling file");
+                            Date lastModDate = new java.util.Date(f.lastModified());
+
+                            // checking If-Modified-Since header and possible errors
+                            if(headers.containsKey("If-Modified-Since")){ 
+                                try{ 
+                                    Date criteriaDate = HTTPDateFormat.parse(headers.get("If-Modified-Since"));                                  
+                                   
+                                    if(lastModDate.after(criteriaDate)){
+                                        status =  "304 Not Modified";
+                                        body = "Error 304: File has not been modified since criteria date";
+                                    } 
+                                } catch (Exception e){ 
+                                    status = "400 Bad Request";
+                                    body = "Error 400: Invalid or Bad Request"; 
+                                } 
+                            }
+
+                            // setting content length and last modified date, assuming no errors and 200 OK status
+                            conLength = String.valueOf(f.length());
+                            lastMod = HTTPDateFormat.format(lastModDate);
                         }
-                    }
 
-                } // closes if (str != null)
+                        // if the status is not 200 OK then the content-length should reflect the message body, not the file content length
+                        if(!status.equals("200 OK")){
+                             conLength = String.valueOf(body.getBytes().length);
+                        }
 
-                System.out.println("done is " + done);
+                        // setting date
+                        String date = HTTPDateFormat.format(new java.util.Date());
 
-            } // closes while (!done)
 
-            // closing the socket
-            sock.close();
+                        // writing response string
+                        String response = "";
+                        response = httpversion + " " + status + "\r\n"
+                                + "Date: " + date + "\r\n"
+                                + "Server: CSserver\r\n"
+                                + "Last-Modified: " + lastMod + "\r\n"
+                                + "Content-Length: " + conLength + "\r\n";
 
-         }
-        }
-         catch (Exception e) {
-            System.out.println("Insert errors here");
-        }
+                        // setting connection header
+                        if(done){
+                            response = response + "Connection: close\r\n\r\n";
+                        }
+                        else{
+                            response = response + "Connection: keep-alive\r\n\r\n";
+                        }
+
+                        System.out.println(response);
+
+                        // sending response 
+                        outToClient.writeBytes(response);
+
+                        // if status is 200 OK and method is GET then read file and send with response
+                        if (status.equals("200 OK") && method.equals("GET")) {
+
+                            try (FileInputStream readableFile = new FileInputStream(fullPath)) {
+                                    int more;
+                                    while ((more = readableFile.read()) != -1) {
+                                        // sending file content byte by byte
+                                        outToClient.write(more);
+                                    }
+
+                            } catch (IOException e) {
+                                System.out.println("Error handling file");
+                            }
+                        }
+                        // if not sending the file, then send the body
+                        else {
+                            if(!body.isEmpty()){
+                                outToClient.writeBytes(body);
+                            }
+                        }
+
+                    } // closes else if (str != null)
+
+                } // closes while (!done)
+
+                // closing the socket
+                sock.close();
+
+            } // closes while(alive)
         
-     
-  }
-}
+        } catch (Exception e) {
+             System.out.println(e.getMessage());
+        } // end of main try/catch 
+        
+    } // closes main
+} // closes class
