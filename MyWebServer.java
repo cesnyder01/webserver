@@ -92,6 +92,7 @@ public class MyWebServer {
                         }
 
                         // beginning to create response
+                        try{
                         File f = new File(path);
 
                         String conLength = "0";
@@ -181,6 +182,9 @@ public class MyWebServer {
                                 outToClient.writeBytes(body);
                             }
                         }
+                        } catch(SocketException e){
+                            done = true;
+                        }
 
                     } // closes else if (str != null)
 
@@ -192,7 +196,7 @@ public class MyWebServer {
             } // closes while(alive)
         
         } catch (Exception e) {
-             System.out.println(e.getMessage());
+            System.out.println(e.getMessage());
         } // end of main try/catch 
         
     } // closes main
